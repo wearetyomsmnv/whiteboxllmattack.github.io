@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Средняя архитектура современного LLM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            padding: 8px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .block {
+            background: transparent;
+            border: 2px solid #4a5568;
+            border-radius: 6px;
+            padding: 8px 12px;
+            width: 100%;
+            max-width: 300px;
+            position: relative;
+            transition: border-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .architecture {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        /* Визуальные линии для показа потока */
+        .flow-connector {
+            width: 3px;
+            background: linear-gradient(180deg, #cbd5e0 0%, #4a5568 50%, #cbd5e0 100%);
+            margin: 0 auto;
+            flex-shrink: 0;
+            position: relative;
+        }
+        
+        .flow-connector::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid #4a5568;
+        }
+
+
+
+        .block-title {
+            font-weight: bold;
+            font-size: 0.875em;
+            margin-bottom: 4px;
+            color: #2d3748;
+            text-align: center;
+        }
+
+        .block-description {
+            font-size: 0.6875em;
+            color: #4a5568;
+            text-align: center;
+            line-height: 1.35;
+            margin-bottom: 4px;
+        }
+
+
+        /* Специальные типы блоков - только обводка, без фона */
+        .input-block {
+            background: transparent;
+            border-color: #718096;
+        }
+
+        .norm-block {
+            background: transparent;
+            border-color: #a0aec0;
+        }
+
+        .attention-block {
+            background: transparent;
+            border-color: #4299e1;
+            max-width: 340px;
+        }
+
+        .moe-block {
+            background: transparent;
+            border-color: #48bb78;
+            max-width: 340px;
+        }
+
+        .output-block {
+            background: transparent;
+            border-color: #f56565;
+        }
+
+        /* Transformer Block контейнер */
+        .transformer-block {
+            border: 2px dashed #a0aec0;
+            border-radius: 6px;
+            padding: 12px;
+            background: transparent;
+            position: relative;
+            width: 100%;
+            margin: 4px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            transition: border-color 0.2s ease;
+        }
+
+        .transformer-block-label {
+            position: absolute;
+            top: -9px;
+            left: 10px;
+            background: #f0f2f5;
+            padding: 4px 8px;
+            font-weight: bold;
+            color: #4a5568;
+            border: 2px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 0.75em;
+            transition: border-color 0.2s ease;
+        }
+
+        /* MoE внутренняя структура */
+        .moe-internal {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .router {
+            background: #4a5568;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.75em;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .experts-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        .expert {
+            background: transparent;
+            border: 2px solid #48bb78;
+            border-radius: 4px;
+            padding: 4px 8px;
+            text-align: center;
+            font-size: 0.625em;
+            font-weight: bold;
+            color: #2d3748;
+            transition: border-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .expert.shared {
+            background: transparent;
+            border-color: #f6ad55;
+        }
+
+        /* Attention детали */
+        .attention-details {
+            display: flex;
+            justify-content: center;
+            margin-top: 4px;
+            gap: 8px;
+        }
+
+        .attention-tag {
+            background: transparent;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.625em;
+            font-weight: bold;
+            border: 2px solid #4299e1;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+
+        /* Повторяющийся блок индикатор */
+        .repeat-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 8px 0;
+            font-weight: bold;
+            color: #4a5568;
+            font-size: 0.75em;
+        }
+
+        .repeat-line {
+            flex: 1;
+            height: 2px;
+            background: #cbd5e0;
+        }
+
+        /* Инлайн описания */
+        .inline-desc {
+            font-size: 0.75em;
+            color: #718096;
+            margin-top: 8px;
+            line-height: 1.35;
+            text-align: center;
+        }
+
+        /* Компактные подсказки рядом с компонентами */
+        .component-hint {
+            display: block;
+            font-size: 0.75em;
+            color: #718096;
+            margin-top: 4px;
+            font-weight: normal;
+            font-style: italic;
+        }
+
+        /* Детальное описание */
+        .detail-desc {
+            font-size: 0.6875em;
+            color: #4a5568;
+            text-align: left;
+            margin-top: 8px;
+            padding: 8px;
+            background: transparent;
+            border-radius: 4px;
+            line-height: 1.35;
+            margin-bottom: 0;
+        }
+
+        /* KV Cache блок */
+        .kv-cache-block {
+            background: transparent;
+            border: 2px solid #ed8936;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-top: 0;
+            font-size: 0.6875em;
+            max-width: 240px;
+            align-self: flex-start;
+            transition: border-color 0.2s ease;
+        }
+
+        .kv-cache-title {
+            font-weight: bold;
+            color: #c05621;
+            margin-bottom: 4px;
+            text-align: center;
+            font-size: 0.875em;
+        }
+
+        /* Residual connection */
+        .residual-connection {
+            position: absolute;
+            right: -30px;
+            width: 30px;
+            height: 100%;
+            border-right: 2px dashed #718096;
+            border-top: 2px dashed #718096;
+            border-bottom: 2px dashed #718096;
+            border-top-right-radius: 15px;
+            border-bottom-right-radius: 15px;
+            z-index: -1;
+        }
+
+        .transformer-block {
+            position: relative;
+        }
+
+        /* Внутренняя структура attention */
+        .attention-internal {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 4px;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .attention-proj {
+            background: transparent;
+            border: 2px solid #4299e1;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.625em;
+            font-weight: bold;
+            color: #2c5282;
+            transition: border-color 0.2s ease, transform 0.1s ease;
+        }
+
+        /* FeedForward структура */
+        .ffn-structure {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 8px;
+            padding: 8px;
+            background: transparent;
+            border-radius: 4px;
+            border: 2px solid #48bb78;
+            transition: border-color 0.2s ease;
+        }
+
+        .ffn-layer {
+            background: transparent;
+            border: 2px solid #48bb78;
+            border-radius: 4px;
+            padding: 4px;
+            font-size: 0.625em;
+            text-align: center;
+            font-weight: bold;
+            color: #2d3748;
+            transition: border-color 0.2s ease;
+        }
+
+        .ffn-activation {
+            background: transparent;
+            border: 2px solid #ed8936;
+            border-radius: 4px;
+            padding: 4px;
+            font-size: 0.625em;
+            text-align: center;
+            font-weight: bold;
+            color: #c05621;
+            transition: border-color 0.2s ease;
+        }
+
+        /* Компонент рядом с attention */
+        .attention-side {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            width: 100%;
+            justify-content: center;
+            position: relative;
+            margin-top: 4px;
+        }
+
+        .attention-main {
+            flex: 1;
+            max-width: 340px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Контейнеры для горизонтального расположения блоков */
+        .attention-side,
+        .ffn-side {
+            position: relative;
+        }
+
+        /* Контейнер для RMSNorm и MoE */
+        .ffn-side {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .ffn-main {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Плашки уязвимостей - рядом с блоками */
+        .vulnerability-badge {
+            background: rgba(99, 102, 241, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 2px solid rgba(99, 102, 241, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.6875em;
+            line-height: 1.35;
+            color: #1e293b;
+            position: relative;
+            max-width: 340px;
+            width: 100%;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+        }
+        
+        .vulnerability-badge.narrow {
+            max-width: 240px;
+        }
+
+        .vulnerability-title {
+            font-weight: bold;
+            font-size: 0.875em;
+            margin-bottom: 8px;
+            color: #4f46e5;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .vulnerability-component-label {
+            font-weight: 600;
+            font-size: 0.75em;
+            margin-bottom: 8px;
+            color: #4338ca;
+            text-align: left;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+            line-height: 1.35;
+        }
+
+        .attack-item {
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+        }
+
+        .attack-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .attack-name {
+            font-weight: 600;
+            font-size: 0.75em;
+            color: #4338ca;
+            margin-bottom: 4px;
+            line-height: 1.35;
+        }
+
+        .attack-description {
+            font-size: 0.6875em;
+            color: #334155;
+            line-height: 1.35;
+            margin-bottom: 8px;
+        }
+
+        .attack-reference {
+            font-size: 0.625em;
+            color: #4338ca;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 0;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 4px;
+            transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, outline 0.2s ease, transform 0.1s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .attack-models {
+            font-size: 0.625em;
+            color: #475569;
+            margin-top: 6px;
+            margin-bottom: 4px;
+            line-height: 1.35;
+        }
+        
+        .attack-models strong {
+            color: #334155;
+            font-weight: 600;
+        }
+        
+        .attack-defense {
+            font-size: 0.625em;
+            color: #059669;
+            margin-top: 6px;
+            margin-bottom: 4px;
+            line-height: 1.35;
+            font-style: italic;
+        }
+        
+        .attack-defense strong {
+            color: #047857;
+            font-weight: 600;
+        }
+
+        .attack-reference:hover {
+            color: #312e81;
+            background: rgba(255, 255, 255, 1);
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(99, 102, 241, 0.15);
+        }
+
+        .attack-reference:focus {
+            outline: 2px solid #6366f1;
+            outline-offset: 2px;
+            color: #312e81;
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .attack-reference:focus-visible {
+            outline: 2px solid #6366f1;
+            outline-offset: 2px;
+        }
+
+        /* Контейнер для размещения блока и плашки рядом */
+        .component-with-vuln {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            width: 100%;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+        
+        .component-with-vuln.wide {
+            max-width: 720px;
+        }
+        
+        .component-with-vuln.column {
+            flex-direction: column;
+        }
+
+        .component-with-vuln .block {
+            flex: 0 0 auto;
+            margin: 0;
+        }
+
+        .component-with-vuln .vulnerability-badge {
+            flex: 0 1 auto;
+            margin: 0;
+            margin-left: auto;
+        }
+
+        /* Дополнительные классы для замены инлайн-стилей */
+        .block-entry-hint {
+            font-size: 0.6875em;
+            color: #4a5568;
+            margin-bottom: 8px;
+            text-align: center;
+            padding: 4px;
+            background: transparent;
+            border: 2px dashed #cbd5e0;
+            border-radius: 4px;
+            width: 100%;
+            transition: border-color 0.2s ease;
+        }
+        
+        .attention-computation {
+            margin-top: 8px;
+            padding: 8px;
+            background: transparent;
+            border: 2px solid #4299e1;
+            border-radius: 4px;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+        
+        .attention-computation-title {
+            font-size: 0.6875em;
+            font-weight: bold;
+            color: #2c5282;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+        
+        .attention-computation-content {
+            font-size: 0.625em;
+            color: #4a5568;
+            text-align: center;
+            line-height: 1.35;
+        }
+        
+        .kv-cache-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .ffn-label {
+            font-size: 0.6875em;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 4px;
+            text-align: center;
+        }
+        
+        .ffn-meta {
+            font-size: 0.625em;
+            color: #718096;
+            margin-top: 4px;
+            text-align: center;
+        }
+        
+        .block-no-margin {
+            margin: 0;
+        }
+        
+        .block-ffn {
+            background: transparent;
+            border-color: #48bb78;
+        }
+        
+        .component-with-vuln.margin-top {
+            margin-top: 8px;
+        }
+        
+        /* Улучшение доступности - focus states для всех интерактивных элементов */
+        a:focus-visible,
+        .block:focus-visible,
+        .attention-tag:focus-visible,
+        .expert:focus-visible {
+            outline: 2px solid #4299e1;
+            outline-offset: 2px;
+        }
+
+        /* Плавные переходы для hover эффектов */
+        .block:hover {
+            border-color: #2d3748;
+        }
+
+        .attention-block:hover {
+            border-color: #3182ce;
+        }
+
+        .moe-block:hover {
+            border-color: #38a169;
+        }
+
+        .output-block:hover {
+            border-color: #e53e3e;
+        }
+
+        .norm-block:hover {
+            border-color: #718096;
+        }
+
+        .input-block:hover {
+            border-color: #4a5568;
+        }
+
+        .vulnerability-badge:hover {
+            border-color: rgba(99, 102, 241, 0.35);
+            background-color: rgba(99, 102, 241, 0.12);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.15);
+        }
+
+        .router:hover {
+            background-color: #2d3748;
+        }
+
+        /* Для вертикального расположения на узких экранах */
+        @media (max-width: 700px) {
+            .component-with-vuln {
+                flex-direction: column;
+            }
+            
+            .attention-side {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .kv-cache-container {
+                width: 100%;
+                align-items: center;
+            }
+            
+            .kv-cache-block {
+                align-self: center;
+                max-width: 100%;
+            }
+        }
+        
+        /* Дополнительные брейкпоинты для улучшенной адаптивности */
+        @media (max-width: 500px) {
+            .container {
+                padding: 8px;
+            }
+            
+            .architecture {
+                gap: 12px;
+            }
+            
+            .component-with-vuln {
+                gap: 8px;
+            }
+            
+            .block {
+                padding: 8px;
+            }
+            
+            .vulnerability-badge {
+                padding: 8px;
+            }
+        }
+        
+        /* Footer стили */
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #cbd5e0;
+        }
+        
+        .footer-link {
+            color: #4338ca;
+            text-decoration: none;
+            font-size: 0.875em;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+        
+        .footer-link:hover {
+            color: #312e81;
+            text-decoration: underline;
+        }
+        
+        .footer-link:focus-visible {
+            outline: 2px solid #6366f1;
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="architecture">
+            <!-- Input Layer -->
+            <div class="block input-block">
+                <div class="block-title">Пользовательский ввод</div>
+            </div>
+
+            <!-- Стрелка к Token Embedding -->
+            <div class="flow-connector" style="height: 20px; margin: 4px 0;"></div>
+
+            <div class="component-with-vuln">
+                <div class="block input-block">
+                    <div class="block-title">Token Embedding Layer</div>
+                    <div class="block-description">Преобразование токенов в числовые векторы</div>
+                    <div class="detail-desc">
+                        Каждое слово или его часть преобразуется в вектор чисел фиксированной длины (обычно 2048-7168 чисел). Модель использует словарь из 128–160 тысяч уникальных токенов (подсловных единиц).
+                    </div>
+                </div>
+                <div class="vulnerability-badge">
+                    <div class="vulnerability-component-label">Token Embedding Layer</div>
+                    <div class="attack-item">
+                        <div class="attack-name">Embedding Weight Extraction</div>
+                        <div class="attack-description">При прямом доступе к параметрам модели можно извлечь матрицу преобразования слов в векторы. Это раскрывает семантические связи между словами и показывает, как модель представляет значения в числовом виде.</div>
+                        <a href="https://arxiv.org/abs/2402.09347" class="attack-reference" target="_blank">Extracting Training Data from LLMs</a>
+                    </div>
+                    <div class="attack-item">
+                        <div class="attack-name">Soft Prompt Threats</div>
+                        <div class="attack-description">Манипуляции с векторными представлениями слов для обхода защиты. Работают без изменения весов модели, напрямую изменяя векторы входных данных. Позволяют обойти фильтры безопасности и процедуры удаления вредоносных знаний.</div>
+                        <a href="https://openreview.net/pdf?id=CLxcLPfARc" class="attack-reference" target="_blank">Soft Prompt Threats: Attacking Safety Alignment (OpenReview)</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Стрелка к Transformer Block -->
+            <div class="flow-connector" style="height: 20px; margin: 4px 0;"></div>
+
+            <!-- Transformer Blocks -->
+            <div class="repeat-indicator">
+                <div class="repeat-line"></div>
+                <span>Transformer Block × N</span>
+                <div class="repeat-line"></div>
+            </div>
+
+            <div class="transformer-block">
+                <div class="transformer-block-label">Transformer Block</div>
+                
+                <div class="block-entry-hint">
+                    <strong>↓ Вход блока</strong> (вход добавляется к результатам обработки)
+                </div>
+                
+                <!-- RMSNorm 1 -->
+                <div class="component-with-vuln">
+                    <div class="block norm-block block-no-margin">
+                        <div class="block-title">RMSNorm</div>
+                        <div class="block-description">Нормализация данных</div>
+                        <div class="detail-desc">
+                            Стабилизирует значения векторов перед обработкой. Улучшает стабильность обучения и ускоряет работу модели. Применяется к данным перед механизмом внимания.
+                        </div>
+                    </div>
+                    <div class="vulnerability-badge">
+                        <div class="vulnerability-component-label">RMSNorm</div>
+                        <div class="attack-item">
+                            <div class="attack-name">Abliteration</div>
+                            <div class="attack-description">Удаление способности модели отказываться от выполнения запросов без переобучения. Сначала вычисляется направление "отказа" в данных модели, затем модифицируются веса так, чтобы они не могли создавать сигнал отказа. Модель сохраняет все знания, но теряет механизм блокировки вредоносных ответов.</div>
+                            <div class="attack-models"><strong>Целевые модели:</strong> Llama-3.1-8B-Instruct, Llama-3-70B-Instruct, Mistral-7B-Instruct-v0.3, Gemma-2-9B-it, Yi-1.5-9B-Chat, DeepSeek-7B-chat</div>
+                            <div class="attack-defense"><strong>Защита:</strong> Модели с расширенным отказом (extended-refusal) более устойчивы</div>
+                            <a href="https://huggingface.co/blog/mlabonne/abliteration" class="attack-reference" target="_blank">Uncensor any LLM with abliteration (Hugging Face)</a>
+                        </div>
+                        <div class="attack-item">
+                            <div class="attack-name">Representation Engineering (RepE)</div>
+                            <div class="attack-description">Управление внутренними состояниями модели в реальном времени путем добавления специальных векторов к определенным слоям. Даже случайные векторы могут нарушить работу механизмов безопасности, повышая успешность атак до 27%. Защита модели очень хрупкая и легко нарушается.</div>
+                            <a href="https://www.lesswrong.com/posts/3ghj8EuKzwD3MQR5G/an-introduction-to-representation-engineering-an-activation" class="attack-reference" target="_blank">An Introduction to Representation Engineering (LessWrong)</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attention -->
+                <div class="attention-side">
+                    <div class="attention-main">
+                        <div class="component-with-vuln column">
+                            <div class="block attention-block block-no-margin">
+                                <div class="block-title">Attention (GQA/MLA)</div>
+                                <div class="block-description">
+                                    <strong>GQA</strong> (Grouped-Query): оптимизация для экономии памяти — несколько запросов используют общие ключи и значения.<br>
+                                    <strong>MLA</strong> (Multi-Head Latent): сжатие данных для работы с длинными текстами.
+                                </div>
+                                <div class="attention-internal">
+                                    <div class="attention-proj">Q (Query)</div>
+                                    <div class="attention-proj">K (Key)</div>
+                                    <div class="attention-proj">V (Value)</div>
+                                </div>
+                                <div class="attention-details">
+                                    <div class="attention-tag">RoPE</div>
+                                </div>
+                                <div class="attention-computation">
+                                    <div class="attention-computation-title">Attention Computation:</div>
+                                    <div class="attention-computation-content">
+                                        Q·K^T → <strong style="color: #c05621;">Softmax</strong> → Attention Weights<br>
+                                        Attention Weights · V → Output
+                                    </div>
+                                </div>
+                                <div class="detail-desc">
+                                    <strong>Как работает:</strong> Входные данные преобразуются в три типа векторов: Q (запросы), K (ключи), V (значения). RoPE добавляет информацию о позиции слов в тексте.<br>
+                                    <strong>RoPE</strong>: кодирует порядок слов через вращение векторов, позволяя модели понимать последовательность.<br>
+                                    <strong>Softmax:</strong> Преобразует оценки внимания в вероятности. Из-за математических особенностей модель вынуждена "сбрасывать" излишки внимания на первый токен для стабильности — это создает уязвимость.<br>
+                                    <strong>Поток данных:</strong> Вход → RMSNorm → Attention → <strong style="color: #2d3748;">+ (добавляется исходный вход)</strong> → выход
+                                </div>
+                            </div>
+                            <div class="vulnerability-badge">
+                                <div class="vulnerability-component-label">Attention (GQA/MLA)</div>
+                                <div class="attack-item">
+                                    <div class="attack-name">Softmax Attention Sink Exploitation</div>
+                                    <div class="attack-description">Из-за математических особенностей функции Softmax модель вынуждена "сбрасывать" излишки внимания на первый токен текста для стабильности вычислений. Это создает предсказуемые точки концентрации внимания. Атакующий знает, куда модель будет "смотреть" всегда, и может использовать это для внедрения вредоносных данных.</div>
+                                    <div class="attack-models"><strong>Целевые модели:</strong> Gemma-7B, LLaMA-3.1-8B/70B/405B</div>
+                                    <a href="https://arxiv.org/html/2504.02732v4" class="attack-reference" target="_blank">Why do LLMs attend to the first token? (arXiv)</a>
+                                </div>
+                                <div class="attack-item">
+                                    <div class="attack-name">Mirage in the Eyes</div>
+                                    <div class="attack-description">В моделях, работающих с изображениями, можно найти области, куда модель всегда обращает внимание. Анализ карт внимания позволяет найти эти точки и внедрить вредоносные данные именно туда. Это вызывает стойкие галлюцинации или выполнение скрытых команд.</div>
+                                    <div class="attack-models"><strong>Целевые модели:</strong> LLaVA-1.5, InstructBLIP, MiniGPT-4, Shikra</div>
+                                    <a href="https://arxiv.org/abs/2501.15269" class="attack-reference" target="_blank">Mirage in the Eyes: Hallucination Attack on MLLMs (arXiv)</a>
+                                </div>
+                                <div class="attack-item">
+                                    <div class="attack-name">DuoAttention Exploitation</div>
+                                    <div class="attack-description">В архитектурах для длинных контекстов внимание разделено на два типа: головы с полным доступом ко всему тексту и головы с доступом только к последним словам. Вредоносный триггер размещается в начале текста, недоступном для "коротких" голов. Если защита опирается только на них, триггер остается незамеченным.</div>
+                                    <div class="attack-models"><strong>Целевые модели:</strong> Llama-3-8B-Instruct (Gradient-1048k/4194k), Llama-2-7B-32K-Instruct, Mistral-7B-Instruct-v0.2/v0.3</div>
+                                    <a href="https://openreview.net/forum?id=cFu7ze7xUm" class="attack-reference" target="_blank">DuoAttention: Efficient Long-Context LLM Inference (ICLR)</a>
+                                </div>
+                                <div class="attack-item">
+                                    <div class="attack-name">Attention Sink Backdoor</div>
+                                    <div class="attack-description">При попытке удалить вредоносные знания из модели структура внимания к стокам сохраняется. Если бэкдор связан с позицией стока, он переживает процедуру очистки. Стоки внимания действуют как защищенная область, которую стандартные методы безопасности не могут очистить.</div>
+                                    <div class="attack-models"><strong>Целевые модели:</strong> Gemma-7B, LLaMA-3.1-8B/70B/405B</div>
+                                    <a href="https://arxiv.org/html/2510.17021v1" class="attack-reference" target="_blank">Forgetting to Forget: Attention Sink as Gateway (arXiv)</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kv-cache-container">
+                        <div class="kv-cache-block block-no-margin">
+                            <div class="kv-cache-title">KV-Cache</div>
+                            <div class="block-description">
+                                Кэш для ускорения работы
+                            </div>
+                            <div class="detail-desc">
+                                Сохраняет уже вычисленные представления предыдущих токенов, чтобы не пересчитывать их заново. Ускоряет генерацию текста в 10-100 раз. Оптимизации GQA и MLA уменьшают объем памяти, необходимой для кэша.
+                            </div>
+                        </div>
+                        <div class="vulnerability-badge narrow">
+                            <div class="vulnerability-component-label">KV-Cache</div>
+                            <div class="attack-item">
+                                <div class="attack-name">RLKV Profiling</div>
+                                <div class="attack-description">С помощью методов обучения с подкреплением можно точно определить, какие головы внимания за что отвечают. Создается карта "слепых зон" модели. Это позволяет классифицировать головы на типы с полным и ограниченным доступом для последующей атаки.</div>
+                                <div class="attack-models"><strong>Целевые модели:</strong> Llama-3-8B-Instruct (Gradient-1048k/4194k), Llama-2-7B-32K-Instruct, Mistral-7B-Instruct-v0.2/v0.3</div>
+                                <a href="https://arxiv.org/html/2510.08525v1" class="attack-reference" target="_blank">Which Heads Matter for Reasoning? RL-Guided KV Cache Compression (arXiv)</a>
+                            </div>
+                            <div class="attack-item">
+                                <div class="attack-name">KV-Cache Memory Exploitation</div>
+                                <div class="attack-description">В архитектурах для длинных контекстов разные головы внимания имеют разный доступ к кэшу. Одни сохраняют весь текст, другие — только последние слова. Вредоносные триггеры размещаются в начале текста, недоступном для "коротких" голов, но видимом для "длинных".</div>
+                                <div class="attack-models"><strong>Целевые модели:</strong> Llama-3-8B-Instruct (Gradient-1048k/4194k), Llama-2-7B-32K-Instruct, Mistral-7B-Instruct-v0.2/v0.3</div>
+                                <a href="https://openreview.net/forum?id=cFu7ze7xUm" class="attack-reference" target="_blank">DuoAttention: Efficient Long-Context LLM Inference (ICLR)</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RMSNorm 2 и MoE/FeedForward -->
+                <div class="ffn-side">
+                    <div class="ffn-main">
+                        <!-- RMSNorm 2 -->
+                        <div class="component-with-vuln">
+                            <div class="block norm-block block-no-margin">
+                                <div class="block-title">RMSNorm</div>
+                                <div class="block-description">Нормализация перед обработкой</div>
+                                <div class="detail-desc">
+                                    Стабилизирует данные после механизма внимания перед передачей в следующий слой. Улучшает стабильность и ускоряет обучение модели.
+                                </div>
+                            </div>
+                            <div class="vulnerability-badge">
+                                <div class="vulnerability-component-label">RMSNorm</div>
+                                <div class="attack-item">
+                                    <div class="attack-name">Abliteration (Post-Attention)</div>
+                                    <div class="attack-description">Применение техники удаления механизма отказа к слою после внимания. Модификация весов так, чтобы они не могли передавать сигнал отказа дальше. Нейтрализует защиту на промежуточном этапе обработки, предотвращая блокировку вредоносных ответов.</div>
+                                    <div class="attack-models"><strong>Целевые модели:</strong> Llama-3.1-8B-Instruct, Llama-3-70B-Instruct, Mistral-7B-Instruct-v0.3, Gemma-2-9B-it, Yi-1.5-9B-Chat, DeepSeek-7B-chat</div>
+                                    <div class="attack-defense"><strong>Защита:</strong> Модели с расширенным отказом (extended-refusal) более устойчивы</div>
+                                    <a href="https://huggingface.co/blog/mlabonne/abliteration" class="attack-reference" target="_blank">Uncensor any LLM with abliteration (Hugging Face)</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- FeedForward Block (для не-MoE моделей) -->
+                    <div class="component-with-vuln margin-top">
+                        <div class="block block-ffn block-no-margin">
+                            <div class="block-title">FeedForward Network (FFN)</div>
+                            <div class="block-description">Обработка данных через нейронную сеть</div>
+                            <div class="ffn-structure">
+                                <div class="ffn-layer">Расширение (up)</div>
+                                <div class="ffn-activation">Активация SiLU</div>
+                                <div class="ffn-layer">Сжатие (down)</div>
+                                <div class="ffn-meta">
+                                    SwiGLU активация
+                                </div>
+                            </div>
+                            <div class="detail-desc">
+                                <strong>Как работает:</strong> Данные проходят через два слоя преобразования с активацией между ними. Сначала размерность увеличивается в 4-8 раз, затем возвращается к исходной. В архитектурах MoE этот блок заменяется на множество специализированных экспертов.<br>
+                                <strong>Поток:</strong> Вход → Расширение → Активация → Сжатие → <strong style="color: #2d3748;">+ (добавляется исходный вход)</strong> → выход
+                            </div>
+                        </div>
+                        <div class="vulnerability-badge">
+                            <div class="vulnerability-component-label">FeedForward Network (FFN)</div>
+                            <div class="attack-item">
+                                <div class="attack-name">Safety Neuron Pruning</div>
+                                <div class="attack-description">Точечное удаление критически важных нейронов, отвечающих за безопасность. Такие нейроны составляют менее 1% от общего числа, но их удаление приводит к потере способности распознавать угрозы. При этом общая работоспособность модели сохраняется.</div>
+                                <div class="attack-models"><strong>Целевые модели:</strong> Qwen2.5-32B-Instruct, Mixtral-8x7B-Instruct, Hunyuan-A13B</div>
+                                <div class="attack-defense"><strong>Защита:</strong> Модели с диффузным распределением функций безопасности (Mixtral, Hunyuan) более устойчивы</div>
+                                <a href="https://arxiv.org/html/2509.11864v1" class="attack-reference" target="_blank">NeuroStrike: Neuron-Level Attacks on Aligned LLMs (arXiv)</a>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- MoE Block -->
+                    <div class="component-with-vuln wide">
+                        <div class="block moe-block block-no-margin">
+                            <div class="block-title">Mixture-of-Experts (MoE)</div>
+                            <div class="block-description">Множество специализированных обработчиков</div>
+                            
+                            <div class="moe-internal">
+                                <div class="router">Роутер — выбирает нужных экспертов для каждого слова</div>
+                                
+                                <div class="experts-grid">
+                                    <div class="expert shared">Общий эксперт</div>
+                                    <div class="expert">Эксперт 1</div>
+                                    <div class="expert">Эксперт 2</div>
+                                    <div class="expert">Эксперт 3</div>
+                                    <div class="expert">Эксперт 4</div>
+                                    <div class="expert">Эксперт 5</div>
+                                    <div class="expert">Эксперт 6</div>
+                                    <div class="expert">Эксперт 7</div>
+                                </div>
+                                
+                                <div class="ffn-structure">
+                                    <div class="ffn-label">Структура эксперта:</div>
+                                    <div class="ffn-layer">Расширение</div>
+                                    <div class="ffn-activation">Активация</div>
+                                    <div class="ffn-layer">Сжатие</div>
+                                    <div class="ffn-meta">
+                                        SwiGLU
+                                    </div>
+                                </div>
+                                
+                                <div class="detail-desc">
+                                    <strong>Как работает:</strong> Роутер выбирает 1 общий эксперт и 6-8 специализированных из 128-384 доступных. Каждый эксперт — это отдельная нейронная сеть, специализирующаяся на определённых типах входов. Модель может содержать до триллиона параметров, но для каждого токена активны только 22–37 миллиардов, что сохраняет скорость работы.
+                                    <br><br>
+                                    <strong>Поток:</strong> Вход → RMSNorm → Роутер → Выбранные эксперты → <strong style="color: #2d3748;">+ (добавляется исходный вход)</strong> → выход → следующий блок
+                                </div>
+                            </div>
+                        </div>
+                        <div class="vulnerability-badge">
+                            <div class="vulnerability-component-label">Mixture-of-Experts (MoE)</div>
+                            <div class="attack-item">
+                                <div class="attack-name">BadMoE</div>
+                                <div class="attack-description">Трехэтапная атака на редко используемых экспертов: (1) Поиск экспертов, которые почти не активируются при обычной работе; (2) Создание специального триггера, который заставляет роутер направлять данные к этим экспертам; (3) Обучение спящих экспертов на вредоносную задачу. Атака незаметна, так как затронутые эксперты не участвуют в обычной работе модели.</div>
+                                <div class="attack-models"><strong>Целевые модели:</strong> Mixtral-8x7B-Base/Instruct, DeepSeek-V3, OLMoE-1B-7B</div>
+                                <a href="https://arxiv.org/html/2504.18598v2" class="attack-reference" target="_blank">BadMoE: Backdooring MoE LLMs via Routing Triggers (arXiv)</a>
+                            </div>
+                            <div class="attack-item">
+                                <div class="attack-name">GateBreaker</div>
+                                <div class="attack-description">Анализ работы роутера с последующим удалением экспертов безопасности. При прямом доступе к модели можно найти экспертов, которые активируются при отказе от вредоносных запросов. Удаление менее 3% параметров этих экспертов повышает успешность атак с 7% до 65%. Метод работает на моделях одного семейства.</div>
+                                <div class="attack-models"><strong>Целевые модели:</strong> Mixtral-8x7B-Instruct, Qwen2.5-32B-A3B-Instruct, Hunyuan-A13B</div>
+                                <div class="attack-defense"><strong>Защита:</strong> Модели с диффузным распределением функций безопасности (Mixtral, Hunyuan) более устойчивы</div>
+                                <a href="https://arxiv.org/html/2512.21008v1" class="attack-reference" target="_blank">GateBreaker: Gate-Guided Attacks on MoE LLMs (arXiv)</a>
+                            </div>
+                            <div class="attack-item">
+                                <div class="attack-name">Safety Neuron Pruning</div>
+                                <div class="attack-description">Точечное удаление критически важных нейронов через анализ их активности. Такие нейроны (менее 1% от общего числа) сильно активируются при вредоносных запросах и слабо — при обычных. Обнуление их весов приводит к потере способности распознавать угрозы, но общая работоспособность модели сохраняется.</div>
+                                <div class="attack-models"><strong>Целевые модели:</strong> Qwen2.5-32B-Instruct, Mixtral-8x7B-Instruct, Hunyuan-A13B</div>
+                                <div class="attack-defense"><strong>Защита:</strong> Модели с диффузным распределением функций безопасности (Mixtral, Hunyuan) более устойчивы</div>
+                                <a href="https://arxiv.org/html/2509.11864v1" class="attack-reference" target="_blank">NeuroStrike: Neuron-Level Attacks on Aligned LLMs (arXiv)</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Стрелка к Final RMSNorm -->
+            <div class="flow-connector" style="height: 20px; margin: 4px 0;"></div>
+
+            <!-- Final RMSNorm -->
+            <div class="component-with-vuln">
+                <div class="block norm-block">
+                    <div class="block-title">Final RMSNorm</div>
+                    <div class="block-description">Пост-нормализация</div>
+                    <div class="detail-desc">
+                        Стабилизирует данные после последнего блока обработки перед преобразованием в слова.
+                    </div>
+                </div>
+                <div class="vulnerability-badge">
+                    <div class="vulnerability-component-label">Final RMSNorm</div>
+                    <div class="attack-item">
+                        <div class="attack-name">Abliteration (Final Layer)</div>
+                        <div class="attack-description">Удаление механизма отказа на выходном слое. Модификация весов так, чтобы модель не могла переключаться в режим безопасности. Предотвращает генерацию стандартных фраз-отказов. Полностью снимает цензуру, сохраняя работоспособность модели.</div>
+                        <div class="attack-models"><strong>Целевые модели:</strong> Llama-3.1-8B-Instruct, Llama-3-70B-Instruct, Mistral-7B-Instruct-v0.3, Gemma-2-9B-it, Yi-1.5-9B-Chat, DeepSeek-7B-chat</div>
+                        <div class="attack-defense"><strong>Защита:</strong> Модели с расширенным отказом (extended-refusal) более устойчивы</div>
+                        <a href="https://huggingface.co/blog/mlabonne/abliteration" class="attack-reference" target="_blank">Uncensor any LLM with abliteration (Hugging Face)</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Стрелка к Linear Output Layer -->
+            <div class="flow-connector" style="height: 20px; margin: 4px 0;"></div>
+
+            <!-- Output Layer -->
+            <div class="component-with-vuln">
+                <div class="block output-block">
+                    <div class="block-title">Linear Output Layer</div>
+                    <div class="block-description">Преобразование в вероятности слов</div>
+                    <div class="detail-desc">
+                        Преобразует внутренние представления модели в логиты для каждого токена из словаря (128–160 тысяч токенов). Функция Softmax превращает логиты в вероятности. Модель выбирает наиболее вероятный следующий токен.
+                    </div>
+                </div>
+                <div class="vulnerability-badge">
+                    <div class="vulnerability-component-label">Linear Output Layer</div>
+                    <div class="attack-item">
+                        <div class="attack-name">JailMine</div>
+                        <div class="attack-description">Поиск промпта, который заставляет модель отвечать на вредоносные запросы. Использует генетические алгоритмы или градиентный спуск для подбора входных слов. Эксплуатирует хрупкость защиты: если модель начинает ответ с утверждения, вероятность отказа падает до нуля. Алгоритм минимизирует вероятность слов отказа и максимизирует вероятность утверждения.</div>
+                        <div class="attack-models"><strong>Целевые модели:</strong> Llama-3-8B-Instruct, Llama-2-7B-Chat, Vicuna-7B/13B-v1.5</div>
+                        <a href="https://arxiv.org/pdf/2405.13068" class="attack-reference" target="_blank">Lockpicking LLMs: A Logit-Based Jailbreak (arXiv)</a>
+                    </div>
+                    <div class="attack-item">
+                        <div class="attack-name">EBGCG</div>
+                        <div class="attack-description">Двухэтапная оптимизация промпта: (1) Поиск идеального вектора в пространстве всех возможных представлений слов (даже если такого слова нет в словаре); (2) Преобразование найденного вектора в реальные слова с последующим уточнением. Ключевая особенность: алгоритм уделяет больше внимания первым словам ответа, используя склонность модели продолжать начатую фразу.</div>
+                        <div class="attack-models"><strong>Целевые модели:</strong> Llama-3-8B-Instruct, Llama-2-7B-Chat, Vicuna-7B/13B-v1.5</div>
+                        <a href="https://openreview.net/pdf?id=EKlispzX65" class="attack-reference" target="_blank">EBGCG: Effective White-Box Jailbreak Attack (OpenReview)</a>
+                    </div>
+                    <div class="attack-item">
+                        <div class="attack-name">Logit Lens</div>
+                        <div class="attack-description">Техника просмотра "мыслей" модели на каждом этапе обработки. Применяя выходную матрицу к промежуточным слоям, можно увидеть, что модель "думает" на каждом шаге. Используется для: (1) Извлечения данных — анализ ранних слоев может показать запомненную информацию, которая фильтруется позже; (2) Восстановления удаленных знаний — поиск следов "забытой" информации и усиление их через специальные промпты.</div>
+                        <a href="https://www.lesswrong.com/posts/AcKRB8wDpdaN6v6ru/interpreting-gpt-the-logit-lens" class="attack-reference" target="_blank">Interpreting GPT: the logit lens (LessWrong)</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Стрелка к Выводу модели -->
+            <div class="flow-connector" style="height: 20px; margin: 4px 0;"></div>
+
+            <div class="block output-block">
+                <div class="block-title">Вывод модели</div>
+            </div>
+        </div>
+        
+        <!-- Footer с ссылкой на телеграм канал -->
+        <div class="footer">
+            <a href="https://t.me/pwnai" target="_blank" class="footer-link">
+               t.me/pwnai
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>
