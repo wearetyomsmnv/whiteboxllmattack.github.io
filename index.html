@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Средняя архитектура современного LLM</title>
+    <title>LLM attack DeepDive wowowowow</title>
     <style>
         * {
             margin: 0;
@@ -46,7 +46,6 @@
             align-items: center;
         }
         
-        /* Визуальные линии для показа потока */
         .flow-connector {
             width: 3px;
             background: linear-gradient(180deg, #cbd5e0 0%, #4a5568 50%, #cbd5e0 100%);
@@ -87,7 +86,6 @@
         }
 
 
-        /* Специальные типы блоков - только обводка, без фона */
         .input-block {
             background: transparent;
             border-color: #718096;
@@ -115,7 +113,6 @@
             border-color: #f56565;
         }
 
-        /* Transformer Block контейнер */
         .transformer-block {
             border: 2px dashed #a0aec0;
             border-radius: 6px;
@@ -145,7 +142,6 @@
             transition: border-color 0.2s ease;
         }
 
-        /* MoE внутренняя структура */
         .moe-internal {
             display: flex;
             flex-direction: column;
@@ -206,7 +202,6 @@
             transition: border-color 0.2s ease, background-color 0.2s ease;
         }
 
-        /* Повторяющийся блок индикатор */
         .repeat-indicator {
             display: flex;
             align-items: center;
@@ -233,7 +228,6 @@
             text-align: center;
         }
 
-        /* Компактные подсказки рядом с компонентами */
         .component-hint {
             display: block;
             font-size: 0.75em;
@@ -243,7 +237,6 @@
             font-style: italic;
         }
 
-        /* Детальное описание */
         .detail-desc {
             font-size: 0.6875em;
             color: #4a5568;
@@ -256,7 +249,6 @@
             margin-bottom: 0;
         }
 
-        /* KV Cache блок */
         .kv-cache-block {
             background: transparent;
             border: 2px solid #ed8936;
@@ -277,7 +269,6 @@
             font-size: 0.875em;
         }
 
-        /* Residual connection */
         .residual-connection {
             position: absolute;
             right: -30px;
@@ -315,7 +306,6 @@
             transition: border-color 0.2s ease, transform 0.1s ease;
         }
 
-        /* FeedForward структура */
         .ffn-structure {
             display: flex;
             flex-direction: column;
@@ -352,7 +342,6 @@
             transition: border-color 0.2s ease;
         }
 
-        /* Компонент рядом с attention */
         .attention-side {
             display: flex;
             gap: 8px;
@@ -371,13 +360,11 @@
             flex-direction: column;
         }
 
-        /* Контейнеры для горизонтального расположения блоков */
         .attention-side,
         .ffn-side {
             position: relative;
         }
 
-        /* Контейнер для RMSNorm и MoE */
         .ffn-side {
             display: flex;
             flex-direction: column;
@@ -393,7 +380,6 @@
             justify-content: center;
         }
 
-        /* Плашки уязвимостей - рядом с блоками */
         .vulnerability-badge {
             background: rgba(99, 102, 241, 0.08);
             backdrop-filter: blur(20px);
@@ -523,7 +509,6 @@
             outline-offset: 2px;
         }
 
-        /* Контейнер для размещения блока и плашки рядом */
         .component-with-vuln {
             display: flex;
             gap: 12px;
@@ -552,7 +537,6 @@
             margin-left: auto;
         }
 
-        /* Дополнительные классы для замены инлайн-стилей */
         .block-entry-hint {
             font-size: 0.6875em;
             color: #4a5568;
@@ -624,7 +608,6 @@
             margin-top: 8px;
         }
         
-        /* Улучшение доступности - focus states для всех интерактивных элементов */
         a:focus-visible,
         .block:focus-visible,
         .attention-tag:focus-visible,
@@ -633,7 +616,6 @@
             outline-offset: 2px;
         }
 
-        /* Плавные переходы для hover эффектов */
         .block:hover {
             border-color: #2d3748;
         }
@@ -668,7 +650,6 @@
             background-color: #2d3748;
         }
 
-        /* Для вертикального расположения на узких экранах */
         @media (max-width: 700px) {
             .component-with-vuln {
                 flex-direction: column;
@@ -690,7 +671,6 @@
             }
         }
         
-        /* Дополнительные брейкпоинты для улучшенной адаптивности */
         @media (max-width: 500px) {
             .container {
                 padding: 8px;
@@ -1083,7 +1063,6 @@
                 </div>
             </div>
 
-            <!-- Стрелка к Выводу модели -->
             <div class="flow-connector" style="height: 20px; margin: 4px 0;"></div>
 
             <div class="block output-block">
@@ -1091,7 +1070,6 @@
             </div>
         </div>
         
-        <!-- Footer с ссылкой на телеграм канал -->
         <div class="footer">
             <a href="https://t.me/pwnai" target="_blank" class="footer-link">
                t.me/pwnai
